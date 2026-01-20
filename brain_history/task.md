@@ -1,0 +1,131 @@
+# Dashboard Web App Task List
+
+- [x] Project Initialization
+    - [x] Create Next.js app (Manually Reconstructed due to interruption)
+    - [x] Install dependencies (Tailwind, shadcn, Recharts, TanStack Table, SheetJS)
+    - [x] Setup folder structure and theme (Dark mode, colors)
+- [x] Data Logic & Parsing
+    - [x] Define TypeScript Interfaces (Department, Municipality, Templo)
+    - [x] Implement Excel Parser Service (SheetJS)
+    - [x] Implement Data Normalization & Aggregation Logic
+    - [x] Create Mock Data Generator
+    - [x] **Verify column mapping matches strict requirements**
+- [x] UI Components - Core & Layout
+    - [x] Install/Configure shadcn/ui components (Manually created Button, Card, Input, etc.)
+    - [x] Build Main Layout (Sticky Header, Breadcrumbs)
+    - [x] Build Data Upload Screen (Drag & Drop, Validation)
+    - [x] **Update Upload Labels: Departamental, Municipal, Bogotá**
+- [x] Dashboard Widgets & Visualizations
+    - [x] Implement KPI Cards Component
+    - [x] Implement Scoreboard Component (National Panorama)
+    - [x] Implement Charts (Bar Charts, Comparisons using Recharts)
+- [x] Advanced Data Table
+    - [x] Implement TanStack Table with features (Sorting, Filtering, Pagination)
+    - [x] Add Heatmap Logic for columns
+    - [x] Implement Drill-down capabilities
+- [x] Integration & Refinement
+    - [x] Connect Data State to UI
+    - [x] Implement Drill-down Navigation Logic
+    - [x] Add "Snapshot" feature (Implicit via Export)
+- [x] Branding & Reports
+    - [x] Fix Bogotá Naming & Data visibility
+    - [x] Create standardized PDF Reports with color logic and legal footer
+    - [x] Fix PDF Footer cutoff (multi-page support)
+    - [x] Replace default favicon and UI logo with custom branding
+- [x] Data Synchronization & Cloud Storage
+    - [x] Implement API routes for Vercel KV storage
+    - [x] Add Cloud Sync logic with local storage fallback
+    - [x] Implement proactive "Data Healing" for national metrics (484 templos)
+    - [x] Add Manual Refresh button in Header
+- [x] Additional Refinements
+    - [x] Remove "Sin Bogotá" label from National Scoreboard
+    - [x] Fix search persistence bug in table drill-downs
+    - [x] Fix Bogotá coverage count (Localities)
+- [x] Panorama Cero Referidos
+    - [x] Replace "Panorama Bogotá" with "Panorama Cero Referidos" in Scoreboard
+    - [x] Add "Ver" button with drill-down to zero-progress entities
+    - [x] Create specialized view with tables for Depts and Munis with 0 referidos
+- [x] Resumen Final
+    - [x] Subir cambios finales
+    - [x] Generar walkthrough actualizado
+    - [x] Notificar al usuario
+- [x] Verification
+    - [x] Verify Data Upload with sample structure
+    - [x] Verify Aggregation Math
+    - [x] Check Mobile Responsiveness
+    - [x] Fix Build Errors for Deployment
+- [x] UI Fixes (Regressions)
+    - [x] Restore Header layout and breadcrumb positioning
+    - [x] Move UploadDialog to a Modal triggered by a button
+    - [x] Fix Scoreboard stacking for sidebar view
+    - [x] Remove unwanted titles and center-aligned containers
+    - [x] Restore Libertad Religiosa Logo and "Panel de Avance Metas" Title
+    - [x] Style buttons with Green/Orange colors and Title Case
+    - [x] Standardize percentage displays to 2 decimals
+- [x] Legacy PDF Overhaul
+    - [x] Generate dual PDFs on single click (Dept/Muni)
+    - [x] Implement specific titles and centered layout
+    - [x] Apply 4-color coding rule with specific Hex codes
+    - [x] Implement color logic exceptions (Red only in 30/65 columns)
+    - [x] Add explanatory text and legend to reports
+    - [x] Format file names and dates as requested
+- [x] Calculated Metrics & UI Refinements
+    - [x] Implement "Referidos Faltantes" calculation for milestones (30, 65, 100)
+    - [x] Update Scoreboard to display target (Meta) and missing count
+    - [x] Customize KPIs for 'Cero Referidos' view
+        - [x] Calculate specific metrics for 0-referidos municipalities
+        - [x] Rename 'Referidos Cargados' to 'Referidos Faltantes' in this view (User corrected: Keep as Cargados but show 0 and missing %)
+        - [x] Update 'Cobertura' to show count of 0-referidos municipalities
+        - [x] Remove redundant global KPI grid in Zero View
+        - [x] Add 'Volver' (Back) button to navigate back from Zero View
+    - [x] Enforce Progress Capping (100% max)
+        - [x] Update DataTable to cap avance30 and avance65 at 100%
+        - [x] Update RankingChart labels and tooltips
+        - [x] Update Scoreboard cards
+    - [x] Add Meta subtext to Zero Progress Scoreboard
+    - [x] Senadores Dashboard & Interactive Map
+        - [x] Add "Senadores" button to National Panorama card
+        - [x] Implement `SenadoresView` component
+        - [x] Create interactive SVG Map of Colombia with department paths
+        - [x] Add Senator profile cards with meta/referral data
+        - [x] Apply standardized color ranges (Red, Orange, Yellow, Green)
+        - [x] Ensure numbers use Colombian thousands separators
+    - [ ] Strategy View Implementation
+        - [ ] Add "Estrategia" button to Panorama Cero Referidos card
+        - [ ] Create `StrategyModal` component with triangular card layout
+        - [x] Integrate strategy modal state in `page.tsx`
+        - [x] Display zero municipalities count in Diego Fernando Galvis's card
+    - [ ] Trend View Implementation
+        - [ ] Add "Tendencia" button to National Panorama card
+        - [ ] Create `TrendModal` component with Charts (Recharts)
+        - [ ] Implement Line Chart "Tendencia Referidos"
+        - [ ] Implement Bar Chart "Referidos por Día"
+        - [ ] Integrate trend modal state in `page.tsx`
+- [x] Concejales View Implementation
+    - [x] Add "Concejales" option to the DropdownMenu
+    - [x] Create `ConcejalesView` component (77 cards, real data)
+    - [x] Implement dynamic milestone filter (30%, 65%, 100%) in all special views
+    - [x] Set default milestone to 65% in all special views
+    - [x] Add name/municipality search bar to Concejales view
+    - [x] Add department filter to Concejales view
+    - [x] Implement "En Cero" filter with dynamic counter
+    - [x] Remove static "Avance XX%" labels from all special view cards
+    - [x] Integrate conejales state and data mapping in `page.tsx`
+    - [x] Verify responsive layout across all special views
+- [x] Dynamic Senator Data (Meta/Referrals)
+    - [x] Pass `DashboardData` to `SenadoresView`
+    - [x] Implement aggregation for Manuel Virgüez (15 depts)
+    - [x] Implement aggregation for Carlos Eduardo (3 depts)
+    - [x] Implement aggregation for Ana Paola (16 depts)
+    - [x] Verify and fix dynamic calculations (Improved normalization & Bogota sync)
+
+
+
+
+
+
+
+
+
+
+
