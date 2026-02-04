@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, getProgressColor } from "@/lib/utils";
 import { User, Target, Users, Activity, Landmark } from 'lucide-react';
-import { Departamento } from '@/lib/types';
-import { getDefaultMilestone } from '@/lib/utils-dates';
+import { Departamento, DashboardData, Municipio } from '@/lib/types';
+import { getDefaultMilestone, isRedEnabled } from '@/lib/utils-dates';
+import { normalize } from '@/lib/utils';
 import {
     Select,
     SelectContent,
@@ -28,11 +29,15 @@ function DeputyCard({ departmentName, meta, referidos, className, customColor: i
     const targetMeta = meta * (milestone / 100);
     const progress = targetMeta > 0 ? (referidos / targetMeta) * 100 : 0;
 
-    // Use custom color if provided
-    const borderColor = initialColor ? `border-[${initialColor}]/50` : "border-emerald-500/50";
-    const bgColor = initialColor ? `bg-[${initialColor}]/10` : "bg-emerald-500/10";
-    const accentBg = initialColor || "#43a047";
-    const textColor = initialColor || "#43a047";
+    // Use dynamic color based on progress and milestone
+    const progressColor = getProgressColor(progress, milestone);
+    const isSpecialCase = milestone === 100 && progress < 30 && !isRedEnabled();
+
+    const borderColor = isSpecialCase ? "border-white/20" : `border-[${progressColor}]/50`;
+    const bgColor = isSpecialCase ? "bg-white/5" : `bg-[${progressColor}]/10`;
+    const accentBg = isSpecialCase ? "#1e293b" : progressColor; // Dark slate for header in special case
+    const accentBgClass = isSpecialCase ? "bg-slate-800" : "";
+    const textColor = progressColor;
 
     return (
         <Card className={cn("overflow-hidden border-2 transition-all hover:scale-105 z-10 hover:z-20 shadow-lg w-[260px]", borderColor, bgColor, className)}>
@@ -89,15 +94,14 @@ function KPICard({ title, value, icon: Icon, subtext, color = "default" }: KPICa
 }
 
 interface DiputadosViewProps {
-    data: Departamento[];
+    data: DashboardData;
+    panoramaScope?: 'total' | 'nacional' | 'bogota';
 }
 
-const normalize = (str: string) => {
-    if (!str) return '';
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
-};
+// Use imported normalize
 
-export function DiputadosView({ data }: DiputadosViewProps) {
+export function DiputadosView({ data, panoramaScope }: DiputadosViewProps) {
+    const departamentos = data.departamentos;
     const [milestone, setMilestone] = useState<string>(getDefaultMilestone());
 
     const targetDepartments = [
@@ -114,7 +118,8 @@ export function DiputadosView({ data }: DiputadosViewProps) {
     const colors = ['#43a047', '#00b0f0', '#ffc000', '#e91e63', '#9c27b0', '#f44336', '#3f51b5', '#795548'];
 
     const deputies = targetDepartments.map((targetName, index) => {
-        const dep = data.find(d => normalize(d.name) === normalize(targetName));
+        const dep = departamentos.find(d => normalize(d.name) === normalize(targetName))
+            || departamentos.find(d => normalize(d.name).includes(normalize(targetName)));
         const meta = dep ? dep.meta : 0;
         const referidos = dep ? dep.referidos : 0;
         const templosCount = dep ? dep.templosCount : 0;
@@ -129,18 +134,37 @@ export function DiputadosView({ data }: DiputadosViewProps) {
             referidos,
             progress,
             templosCount,
-            color: colors[index % colors.length]
+            color: getProgressColor(progress, mVal)
         };
     });
 
-    const sortedDeputies = [...deputies].sort((a, b) => b.progress - a.progress);
+    const sortedDeputies = [...deputies].sort((a, b) => {
+        if (b.progress !== a.progress) return b.progress - a.progress;
+        return b.referidos - a.referidos;
+    });
 
     const row1 = sortedDeputies.slice(0, 4);
     const row2 = sortedDeputies.slice(4, 8);
 
-    const totalMeta = deputies.reduce((acc, curr) => acc + curr.meta, 0);
+    // THE 202 FIX: Isolated logic to count municipalities for target departments
+    const totalTemplos = React.useMemo(() => {
+        // Count raw municipalities that match our target departments
+        const mList = data.municipios || [];
+        const targetsNormalized = targetDepartments.map(t => normalize(t));
+
+        const matchingMunis = mList.filter(m => {
+            const mDept = normalize(m.departamento);
+            return targetsNormalized.some(tn => mDept === tn || mDept.includes(tn) || tn.includes(mDept));
+        });
+
+        let count = matchingMunis.length;
+
+        // Bogotá has no deputy, so Total scope in this view is same as National (202 municipios)
+        return count;
+    }, [data.municipios, panoramaScope]);
+
+    const totalMeta = totalTemplos * 23;
     const totalReferidos = deputies.reduce((acc, curr) => acc + curr.referidos, 0);
-    const totalTemplos = deputies.reduce((acc, curr) => acc + (curr.templosCount || 0), 0);
     const totalAvance = totalMeta > 0 ? (totalReferidos / totalMeta) * 100 : 0;
 
     return (

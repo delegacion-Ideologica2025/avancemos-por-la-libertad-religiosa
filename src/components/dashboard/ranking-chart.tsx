@@ -21,7 +21,13 @@ export function RankingChart({ data, title = "Ranking por Avance" }: { data: any
     const [metric, setMetric] = useState<"avance30" | "avance65" | "avance100">(`avance${defaultMilestone}` as any);
 
     // Sort data: Always Best to Worst (Descending) based on selected metric
-    const sorted = [...data].sort((a, b) => b[metric] - a[metric]);
+    // Tie-break with real referidos count
+    const sorted = [...data].sort((a, b) => {
+        if (b[metric] !== a[metric]) {
+            return b[metric] - a[metric];
+        }
+        return b.referidos - a.referidos;
+    });
 
     // If onlyTop10 is true, show first 10. Else show all.
     const chartData = onlyTop10 ? sorted.slice(0, 10) : sorted;
@@ -46,6 +52,49 @@ export function RankingChart({ data, title = "Ranking por Avance" }: { data: any
         }
         return null;
     };
+
+    const CustomYAxisTick = (props: any) => {
+        const { x, y, payload, index } = props;
+        const entry = chartData[index];
+        if (!entry) return null;
+
+        const temploName = entry.temploName || '';
+        const muniName = payload.value.toUpperCase();
+        const fullTemploNorm = temploName.toUpperCase();
+
+        // Only show if different from municipality name
+        const shouldShowTemplo = fullTemploNorm && fullTemploNorm !== muniName;
+
+        return (
+            <g transform={`translate(${x},${y})`}>
+                <text
+                    x={-5}
+                    y={shouldShowTemplo ? -2 : 3}
+                    dy={0}
+                    textAnchor="end"
+                    fill="#9ca3af"
+                    style={{ fontSize: '10px', fontWeight: 'bold' }}
+                >
+                    {payload.value}
+                </text>
+                {shouldShowTemplo && (
+                    <text
+                        x={-5}
+                        y={8}
+                        dy={0}
+                        textAnchor="end"
+                        fill="#6b7280"
+                        style={{ fontSize: '8px' }}
+                    >
+                        ({temploName})
+                    </text>
+                )}
+            </g>
+        );
+    };
+
+    // Calculate dynamic height based on data points when not in Top 10 mode
+    const chartHeight = onlyTop10 ? 400 : Math.max(400, chartData.length * 35);
 
     return (
         <Card className="col-span-1">
@@ -80,7 +129,10 @@ export function RankingChart({ data, title = "Ranking por Avance" }: { data: any
                 </div>
             </CardHeader>
             <CardContent>
-                <div className={cn("w-full transition-all", onlyTop10 ? "h-[400px]" : "h-[800px]")}>
+                <div
+                    className="w-full transition-all duration-300 overflow-visible"
+                    style={{ height: `${chartHeight}px` }}
+                >
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                             layout="vertical"
@@ -92,7 +144,7 @@ export function RankingChart({ data, title = "Ranking por Avance" }: { data: any
                                 dataKey="name"
                                 type="category"
                                 width={130}
-                                tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                tick={<CustomYAxisTick />}
                                 interval={0}
                             />
                             <Tooltip

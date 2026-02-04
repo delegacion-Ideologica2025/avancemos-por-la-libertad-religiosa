@@ -1,11 +1,21 @@
 "use client";
 
 import React from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Brain } from "lucide-react";
+import { ChevronDown, Map, MapPin, Building2, Brain } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { isRedEnabled } from "@/lib/utils-dates";
 import { DashboardData } from "@/lib/types";
+import { normalize } from "@/lib/utils";
+
+import { EDILES_DC_LIST, LOCALIDAD_TO_LOCALIDAD_MAYOR } from "@/lib/constants";
 
 interface ReportsButtonProps {
     data: DashboardData;
@@ -31,21 +41,26 @@ export function ReportsButton({ data, title }: ReportsButtonProps) {
         if (value >= 65) return [253, 216, 53]; // #fdd835 (Amarillo)
         if (value >= 30) return [251, 140, 0];  // #fb8c00 (Naranja)
 
-        // Red logic: Only for 30% and 65% columns
-        if (columnType !== '100') return [229, 57, 53]; // #e53935 (Rojo)
+        if (columnType === '100') {
+            if (!isRedEnabled()) return null;
+        }
 
-        return null; // White for <30 in 100% column
+        return [229, 57, 53]; // #e53935 (Rojo)
     };
 
-    const generatePdf = (type: 'Departamental' | 'Municipal') => {
+    const generatePdf = (type: 'Departamental' | 'Municipal' | 'Ediles') => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // 1. Centered Title
-        const mainTitle = type === 'Departamental'
-            ? "INFORME DE GESTIÓN DEPARTAMENTAL: AVANCEMOS POR LA"
-            : "INFORME DE GESTIÓN MUNICIPAL: AVANCEMOS POR LA";
+        let mainTitle = "";
+        if (type === 'Departamental') {
+            mainTitle = "INFORME DE GESTIÓN DEPARTAMENTAL: AVANCEMOS POR LA";
+        } else if (type === 'Municipal') {
+            mainTitle = "INFORME DE GESTIÓN MUNICIPAL: AVANCEMOS POR LA";
+        } else {
+            mainTitle = "INFORME DE GESTIÓN EDILES D.C: AVANCEMOS POR LA";
+        }
         const subTitle = "LIBERTAD RELIGIOSA";
 
         doc.setFont("times", "bold");
@@ -53,136 +68,208 @@ export function ReportsButton({ data, title }: ReportsButtonProps) {
         doc.text(mainTitle, pageWidth / 2, 15, { align: 'center' });
         doc.text(subTitle, pageWidth / 2, 22, { align: 'center' });
 
-        // 2. Prepare Data
-        let rows: any[] = [];
+        let headers: any[][] = [];
+        const commonHeaders = ['LOCALIDAD', 'REPORTANDO', 'REFERIDOS\nCARGADOS', 'OBJETIVO', 'AVANCE 30%\n15 Enero', 'AVANCE 65%\n7 Febrero', 'AVANCE 100%\n28 Febrero'];
+
         if (type === 'Departamental') {
-            rows = [...data.departamentos]
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map(d => [
-                    d.name.toUpperCase(),
-                    d.referidos.toLocaleString('es-CO'),
-                    (d.templosCount || 0).toLocaleString('es-CO'), // Reporting count of municipios with refs
-                    d.meta.toLocaleString('es-CO'),
-                    d.avance30,
-                    d.avance65,
-                    d.avance100
-                ]);
+            headers = [['DEPARTAMENTO', 'REPORTANDO', 'REFERIDOS\nCARGADOS', 'OBJETIVO', 'AVANCE 30%\n15 Enero', 'AVANCE 65%\n7 Febrero', 'AVANCE 100%\n28 Febrero']];
+        } else if (type === 'Municipal') {
+            headers = [['DEPARTAMENTO', 'MUNICIPIO', 'REPORTANDO', 'REFERIDOS\nCARGADOS', 'OBJETIVO', 'AVANCE 30%\n15 Enero', 'AVANCE 65%\n7 Febrero', 'AVANCE 100%\n28 Febrero']];
         } else {
-            rows = [...data.municipios]
-                .filter(m => !m.name.toUpperCase().includes('BOGOTA') && !m.name.toUpperCase().includes('BOGOTÁ'))
-                .sort((a, b) => {
-                    const deptCompare = (a.departamento || '').localeCompare(b.departamento || '');
-                    if (deptCompare !== 0) return deptCompare;
-                    return a.name.localeCompare(b.name);
-                })
-                .map(m => [
-                    (m.departamento || '').toUpperCase(),
-                    m.name.toUpperCase(),
-                    m.temploName || "0", // Reportando moved here
-                    m.referidos.toLocaleString('es-CO'),
-                    m.meta.toLocaleString('es-CO'),
-                    m.avance30,
-                    m.avance65,
-                    m.avance100
-                ]);
+            headers = [commonHeaders];
         }
 
-        // 3. Table
-        autoTable(doc, {
-            startY: 30,
-            head: [[
-                type === 'Departamental' ? 'DEPARTAMENTO' : 'DEPARTAMENTO',
-                type === 'Departamental' ? 'REFERIDOS CARGADOS' : 'MUNICIPIO',
-                type === 'Departamental' ? 'REPORTANDO' : 'REPORTANDO',
-                type === 'Departamental' ? 'META' : 'REFERIDOS\nCARGADOS',
-                type === 'Departamental' ? 'AVANCE 30%\n15 Enero' : 'META',
-                type === 'Departamental' ? 'AVANCE 65%\n7 Febrero' : 'AVANCE 30%\n15 Enero',
-                type === 'Departamental' ? 'AVANCE 100%\n28 Febrero' : 'AVANCE 65%\n7 Febrero',
-                type === 'Departamental' ? '' : 'AVANCE 100%\n28 Febrero'
-            ]].map(row => type === 'Departamental' ? row.slice(0, 7) : row),
-            body: rows.map(r => {
-                if (type === 'Departamental') {
-                    return [
-                        r[0], r[1], r[2], r[3],
-                        `${Math.min(r[4], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
-                        `${Math.min(r[5], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
-                        `${r[6].toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-                    ];
-                } else {
-                    return [
-                        r[0], r[1], r[2], r[3], r[4],
-                        `${Math.min(r[5], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
-                        `${Math.min(r[6], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
-                        `${r[7].toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-                    ];
-                }
-            }),
-            headStyles: {
-                fillColor: [255, 255, 255],
-                textColor: [0, 0, 0],
-                lineColor: [0, 0, 0],
-                lineWidth: 0.1,
-                halign: 'center',
-                valign: 'middle',
-                fontSize: 8,
-                font: 'times',
-                fontStyle: 'bold'
-            },
-            styles: {
-                lineColor: [0, 0, 0],
-                lineWidth: 0.1,
-                fontSize: 9,
-                textColor: [0, 0, 0],
-                halign: 'center',
-                font: 'times'
-            },
-            columnStyles: {
-                0: { halign: 'left' },
-                // For Municipal: Dept (0) is left, Muni (1) is left, Reportando (2) is left (content only logic below), others center
-                1: { halign: type === 'Municipal' ? 'left' : 'center' },
-                2: { halign: type === 'Municipal' ? 'left' : 'center' }
-            },
-            alternateRowStyles: { fillColor: [255, 255, 255] },
-            didParseCell: (data) => {
-                // Adjust header alignment for Reportando in Municipal report
-                if (type === 'Municipal' && data.section === 'head' && data.column.index === 2) {
-                    data.cell.styles.halign = 'center'; // Force header to center
-                }
+        const colWidths = type === 'Ediles'
+            ? [33, 46, 22, 18, 23, 23, 24]
+            : type === 'Municipal'
+                ? [24, 26, 39, 22, 18, 21, 20, 20]
+                : [36, 25, 25, 20, 28, 28, 28];
 
-                const valueIndexBase = type === 'Departamental' ? 4 : 5;
-                if (data.section === 'body' && data.column.index >= valueIndexBase) {
-                    const val = rows[data.row.index][data.column.index];
-                    const colType = data.column.index === valueIndexBase ? '30' : data.column.index === valueIndexBase + 1 ? '65' : '100';
-                    const color = getCellColor(val, colType);
-                    if (color) {
-                        data.cell.styles.fillColor = color;
-                        // For colored cells, user says "los numeros de las tablas del pdf todos deben ser negros"
-                        data.cell.styles.textColor = [0, 0, 0];
+        if (type === 'Ediles') {
+            const EDILES_REMAINING_LIST = ['USME', 'TUNJUELITO', 'PUENTE ARANDA', 'ANTONIO NARIÑO', 'CIUDAD BOLÍVAR', 'TEUSAQUILLO', 'CHAPINERO'];
+
+            const getEdilData = (filterList: string[]) => {
+                const normFilters = filterList.map(f => normalize(f));
+                return [...data.templos]
+                    .filter(t => {
+                        const tLoc = normalize(t.localidad || '');
+                        const tMayor = t.localidadMayor ? normalize(t.localidadMayor) : '';
+
+                        // 1. Check direct locality mayor match
+                        if (normFilters.includes(tMayor)) return true;
+
+                        // 2. Check manual mapping match
+                        return Object.entries(LOCALIDAD_TO_LOCALIDAD_MAYOR).some(([excelLoc, major]) =>
+                            normFilters.includes(normalize(major)) && normalize(excelLoc) === tLoc
+                        );
+                    })
+                    .sort((a, b) => {
+                        const getMayorForSort = (t: any) => {
+                            const tLoc = normalize(t.localidad || '');
+                            const tMayor = t.localidadMayor ? normalize(t.localidadMayor) : '';
+
+                            const mapping = Object.entries(LOCALIDAD_TO_LOCALIDAD_MAYOR).find(([ex, maj]) =>
+                                normalize(ex) === tLoc && normFilters.includes(normalize(maj))
+                            );
+                            if (mapping) return mapping[1];
+
+                            const found = filterList.find(off => normalize(off) === tMayor);
+                            return found || 'Z-OTROS';
+                        };
+                        const locCompare = getMayorForSort(a).localeCompare(getMayorForSort(b));
+                        if (locCompare !== 0) return locCompare;
+                        return a.name.localeCompare(b.name);
+                    })
+                    .map(t => {
+                        const getOfficialName = (t: any) => {
+                            const tLoc = normalize(t.localidad || '');
+                            const tMayor = t.localidadMayor ? normalize(t.localidadMayor) : '';
+
+                            // PRIORITIZE manual mapping
+                            const mapping = Object.entries(LOCALIDAD_TO_LOCALIDAD_MAYOR).find(([ex, maj]) =>
+                                normalize(ex) === tLoc && normFilters.includes(normalize(maj))
+                            );
+                            if (mapping) return mapping[1];
+
+                            const foundOfficial = filterList.find(official => normalize(official) === tMayor);
+                            if (foundOfficial) return foundOfficial;
+
+                            return t.localidadMayor || t.localidad || 'BOGOTÁ';
+                        };
+
+                        const objective = 23;
+                        const referidos = t.referidos || 0;
+                        return [
+                            getOfficialName(t).toUpperCase(),
+                            t.name.toUpperCase(),
+                            referidos.toLocaleString('es-CO'),
+                            objective,
+                            (referidos / (objective * 0.30)) * 100,
+                            (referidos / (objective * 0.65)) * 100,
+                            (referidos / objective) * 100
+                        ];
+                    });
+            };
+
+            const rowsOfficial = getEdilData(EDILES_DC_LIST);
+            const rowsRemaining = getEdilData(EDILES_REMAINING_LIST);
+
+            const tableConfig: any = {
+                startY: 40,
+                theme: 'grid',
+                styles: { fontSize: 7, cellPadding: 2, halign: 'center', valign: 'middle', lineWidth: 0.1, lineColor: [80, 80, 80], textColor: [0, 0, 0] },
+                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.3, fontStyle: 'bold' },
+                columnStyles: {
+                    0: { halign: 'left', cellWidth: colWidths[0] },
+                    1: { halign: 'left', cellWidth: colWidths[1] },
+                    2: { halign: 'center', cellWidth: colWidths[2] },
+                    3: { cellWidth: colWidths[3] },
+                    4: { cellWidth: colWidths[4] },
+                    5: { cellWidth: colWidths[5] },
+                    6: { cellWidth: colWidths[6] }
+                },
+                alternateRowStyles: { fillColor: [255, 255, 255] },
+                margin: { left: 10, right: 10 }
+            };
+
+            const formatRows = (rowsArr: any[]) => rowsArr.map(r => [
+                r[0], r[1], r[2], r[3],
+                `${Math.min(r[4], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
+                `${Math.min(r[5], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
+                `${r[6].toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+            ]);
+
+            const parseCell = (rowsArr: any[]) => (cellData: any) => {
+                if (cellData.section === 'head' && cellData.column.index > 2) cellData.cell.styles.halign = 'center';
+                if (cellData.section === 'body') {
+                    if (cellData.column.index === 3) {
+                        cellData.cell.styles.fillColor = [67, 160, 71];
                     }
-                } else if (data.section === 'body') {
-                    data.cell.styles.textColor = [0, 0, 0];
+                    if ([4, 5, 6].includes(cellData.column.index)) {
+                        const val = rowsArr[cellData.row.index][cellData.column.index];
+                        const colType = cellData.column.index === 4 ? '30' : cellData.column.index === 5 ? '65' : '100';
+                        const color = getCellColor(val, colType);
+                        if (color) cellData.cell.styles.fillColor = color;
+                    }
                 }
-            },
-            margin: { left: 10, right: 10 }
-        });
+            };
 
-        // 4. Footer (Explanatory Text & Legend)
-        let finalY = (doc as any).lastAutoTable.finalY + 10;
+            autoTable(doc, {
+                ...tableConfig,
+                head: headers,
+                body: formatRows(rowsOfficial),
+                didParseCell: parseCell(rowsOfficial)
+            });
 
-        // Prevent overlap with page end
-        if (finalY > pageHeight - 60) {
-            doc.addPage();
-            finalY = 20;
+            let finalY = (doc as any).lastAutoTable.finalY + 15;
+            if (finalY > pageHeight - 40) { doc.addPage(); finalY = 20; }
+            doc.setFont("times", "bold");
+            doc.setFontSize(14);
+            doc.text("LOCALIDADES SIN EDILES", pageWidth / 2, finalY, { align: 'center' });
+
+            autoTable(doc, {
+                ...tableConfig,
+                head: headers,
+                body: formatRows(rowsRemaining),
+                startY: finalY + 5,
+                didParseCell: parseCell(rowsRemaining)
+            });
+
+        } else {
+            // Municipal & Departamental logic
+            let rows: any[] = [];
+            if (type === 'Departamental') {
+                rows = [...data.departamentos].sort((a, b) => a.name.localeCompare(b.name)).map(d => [
+                    d.name.toUpperCase(), (d.templosCount || 0).toLocaleString('es-CO'), d.referidos.toLocaleString('es-CO'), d.meta.toLocaleString('es-CO'), d.avance30, d.avance65, d.avance100
+                ]);
+            } else {
+                rows = [...data.municipios].filter(m => !m.name.toUpperCase().includes('BOGOTA')).sort((a, b) => (a.departamento || '').localeCompare(b.departamento || '') || a.name.localeCompare(b.name)).map(m => [
+                    (m.departamento || '').toUpperCase(), m.name.toUpperCase(), m.temploName || "0", m.referidos.toLocaleString('es-CO'), m.meta.toLocaleString('es-CO'), m.avance30, m.avance65, m.avance100
+                ]);
+            }
+
+            autoTable(doc, {
+                head: headers,
+                body: rows.map(r => {
+                    const offset = type === 'Municipal' ? 1 : 0;
+                    return [
+                        ...r.slice(0, 4 + offset),
+                        `${Math.min(r[4 + offset], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
+                        `${Math.min(r[5 + offset], 100).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
+                        `${r[6 + offset].toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                    ];
+                }),
+                startY: 40,
+                theme: 'grid',
+                styles: { fontSize: 7, cellPadding: 2, halign: 'center', valign: 'middle', lineWidth: 0.1, lineColor: [80, 80, 80], textColor: [0, 0, 0] },
+                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.3, fontStyle: 'bold' },
+                columnStyles: { 0: { halign: 'left', cellWidth: colWidths[0] }, 1: { halign: 'left', cellWidth: colWidths[1] } },
+                didParseCell: (cellData) => {
+                    if (cellData.section === 'body') {
+                        const objetivoIdx = type === 'Municipal' ? 4 : 3;
+                        if (cellData.column.index === objetivoIdx) cellData.cell.styles.fillColor = [67, 160, 71];
+                        const progressCols = type === 'Municipal' ? [5, 6, 7] : [4, 5, 6];
+                        if (progressCols.includes(cellData.column.index)) {
+                            const val = rows[cellData.row.index][cellData.column.index];
+                            const colType = cellData.column.index === progressCols[0] ? '30' : cellData.column.index === progressCols[1] ? '65' : '100';
+                            const color = getCellColor(val, colType);
+                            if (color) cellData.cell.styles.fillColor = color;
+                        }
+                    }
+                },
+                margin: { left: 10, right: 10 }
+            });
         }
 
+        // Footer & Legend
+        let finalY = (doc as any).lastAutoTable.finalY + 10;
+        if (finalY > pageHeight - 60) { doc.addPage(); finalY = 20; }
         doc.setFont("times", "italic");
         doc.setFontSize(9);
         const description = "Este informe presenta el estado de avance en el número de referidos registrados en el marco de la estrategia, Avancemos por la Libertad Religiosa. El seguimiento se realiza mediante tres cortes de control programados para el 15 de enero, el 7 de febrero y el 28 de febrero, permitiendo evaluar el cumplimiento progresivo de las metas establecidas.";
         doc.text(doc.splitTextToSize(description, pageWidth - 30), 14, finalY);
-
         finalY += 15;
         doc.text("Para facilitar la interpretación de los resultados, se utiliza una escala de cuatro colores:", 14, finalY);
-
         finalY += 8;
         const legend = [
             { color: [67, 160, 71], text: "Verde: Representa un cumplimiento del 100% o superior de la meta fijada para el corte." },
@@ -190,34 +277,42 @@ export function ReportsButton({ data, title }: ReportsButtonProps) {
             { color: [251, 140, 0], text: "Naranja: Señala un progreso intermedio, con un cumplimiento entre el 30% y el 64%." },
             { color: [229, 57, 53], text: "Rojo: Identifica un nivel de ejecución inicial, por debajo del 30%." }
         ];
-
         legend.forEach(item => {
             doc.setFillColor(item.color[0], item.color[1], item.color[2]);
             doc.rect(14, finalY - 4, 4, 4, 'F');
             doc.text(item.text, 22, finalY);
             finalY += 6;
         });
-
         finalY += 4;
         const note = "Nota importante: Es necesario destacar que el color rojo solo se aplica para los cortes del 15 de enero y 7 de febrero. En el último corte, los registros que se sitúen por debajo del 30% no se marcarán con ese color; esto se debe a que, en esa etapa, dichas cifras no representan una alerta, sino el avance gradual y acumulativo hacia los objetivos finales de la estrategia.";
         doc.text(doc.splitTextToSize(note, pageWidth - 30), 14, finalY);
 
-        const fileName = `Referidos SR, ${type} ${formatDateTime()}.pdf`.replace(/\//g, '-');
-        doc.save(fileName);
-    };
-
-    const handleGenerateReport = () => {
-        generatePdf('Departamental');
-        setTimeout(() => generatePdf('Municipal'), 500);
+        window.open(doc.output('bloburl'), '_blank');
     };
 
     return (
-        <Button
-            onClick={handleGenerateReport}
-            className="bg-emerald-600 hover:bg-emerald-700 font-bold gap-2 px-6 text-white border-none shadow-lg"
-        >
-            <Brain className="w-5 h-5" />
-            Crear Informe
-        </Button>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 font-bold gap-2 px-6 text-white border-none shadow-lg">
+                    <Brain className="w-5 h-5" />
+                    Crear Informe
+                    <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-background border-muted shadow-2xl">
+                <DropdownMenuItem onClick={() => generatePdf('Departamental')} className="cursor-pointer gap-2 py-2.5">
+                    <Map className="w-4 h-4 text-emerald-500" />
+                    <span>Departamental</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generatePdf('Municipal')} className="cursor-pointer gap-2 py-2.5">
+                    <MapPin className="w-4 h-4 text-emerald-500" />
+                    <span>Municipal</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generatePdf('Ediles')} className="cursor-pointer gap-2 py-2.5">
+                    <Building2 className="w-4 h-4 text-emerald-500" />
+                    <span>Ediles D.C</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }

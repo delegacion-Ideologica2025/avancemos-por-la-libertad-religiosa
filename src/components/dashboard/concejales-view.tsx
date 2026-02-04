@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, getProgressColor } from "@/lib/utils";
 import { User, Target, Users, Activity, Landmark, Search } from 'lucide-react';
 import { DashboardData, Departamento, Municipio } from '@/lib/types';
-import { getDefaultMilestone } from '@/lib/utils-dates';
+import { getDefaultMilestone, isRedEnabled } from '@/lib/utils-dates';
 import {
     Select,
     SelectContent,
@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Filter } from 'lucide-react';
+import { Filter, TrendingUp } from 'lucide-react';
+import { CouncilEvolutionModal } from './council-evolution-modal';
 
 interface CouncilCardProps {
     municipalityName: string;
@@ -32,11 +33,14 @@ function CouncilCard({ municipalityName, departmentName, meta, referidos, classN
     const targetMeta = meta * (milestone / 100);
     const progress = targetMeta > 0 ? (referidos / targetMeta) * 100 : 0;
 
-    // Standard colors for cards
-    const borderColor = initialColor ? `border-[${initialColor}]/50` : "border-emerald-500/50";
-    const bgColor = initialColor ? `bg-[${initialColor}]/10` : "bg-emerald-500/10";
-    const accentBg = initialColor || "#43a047";
-    const textColor = initialColor || "#43a047";
+    // Use dynamic color based on progress and milestone
+    const progressColor = getProgressColor(progress, milestone);
+    const isSpecialCase = milestone === 100 && progress < 30 && !isRedEnabled();
+
+    const borderColor = isSpecialCase ? "border-white/20" : `border-[${progressColor}]/50`;
+    const bgColor = isSpecialCase ? "bg-white/5" : `bg-[${progressColor}]/10`;
+    const accentBg = isSpecialCase ? "#1e293b" : progressColor; // Dark slate for header
+    const textColor = progressColor;
 
     return (
         <Card className={cn("overflow-hidden border-2 transition-all hover:scale-105 z-10 hover:z-20 shadow-lg w-full max-w-[280px]", borderColor, bgColor, className)}>
@@ -97,11 +101,12 @@ const normalize = (str: string) => {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 };
 
-export function ConcejalesView({ data }: { data: DashboardData }) {
+export function ConcejalesView({ data, panoramaScope }: { data: DashboardData, panoramaScope?: 'total' | 'nacional' | 'bogota' }) {
     const [milestone, setMilestone] = useState<string>(getDefaultMilestone());
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDept, setSelectedDept] = useState<string>("ALL");
     const [showZeroOnly, setShowZeroOnly] = useState(false);
+    const [isEvolutionOpen, setIsEvolutionOpen] = useState(false);
 
     const targetEntities = useMemo(() => [
         { dept: "ANTIOQUIA", muni: "APARTADO", name: "WILLIAM BLANDON" },
@@ -110,8 +115,7 @@ export function ConcejalesView({ data }: { data: DashboardData }) {
         { dept: "ANTIOQUIA", muni: "NECOCLI", name: "GERMAN CALLE" },
         { dept: "ARAUCA", muni: "TAME", name: "NORELA CORONADO" },
         { dept: "ARAUCA", muni: "ARAUCA", name: "LIONSO ARAUJO" },
-        { dept: "BOGOTA", muni: "10 ENGATIVA", name: "FABIAN PUENTES" },
-        { dept: "BOGOTA", muni: "BOGOTA D.C", name: "SAMIR BEDOYA" },
+        { dept: "BOGOTA", muni: "BOGOTA", name: "BOGOTÁ (2)" },
         { dept: "BOYACA", muni: "SACHICA", name: "EVELIN CABEZAS" },
         { dept: "BOYACA", muni: "SOGAMOSO", name: "DIEGO PEREZ" },
         { dept: "CALDAS", muni: "AGUADAS", name: "DIANA IGLESIAS" },
@@ -183,42 +187,74 @@ export function ConcejalesView({ data }: { data: DashboardData }) {
         { dept: "VALLE", muni: "DAGUA", name: "OSCAR MARTINEZ" }
     ], []);
 
+    const filteredTargetEntities = useMemo(() => {
+        if (panoramaScope === 'nacional' || panoramaScope === 'bogota') {
+            return targetEntities.filter(t => t.dept !== "BOGOTA");
+        }
+        return targetEntities;
+    }, [targetEntities, panoramaScope]);
+
     const departments = useMemo(() => {
-        const set = new Set(targetEntities.map(t => t.dept));
+        const set = new Set(filteredTargetEntities.map(t => t.dept));
         return Array.from(set).sort();
-    }, [targetEntities]);
+    }, [filteredTargetEntities]);
 
     const colors = ['#43a047', '#00b0f0', '#ffc000', '#e91e63', '#9c27b0', '#f44336', '#3f51b5', '#795548'];
 
     const councillors = useMemo(() => {
-        return targetEntities.map((t, index) => {
-            const muni = data.municipios.find(m =>
-                normalize(m.name) === normalize(t.muni) &&
-                normalize(m.departamento || "") === normalize(t.dept)
-            );
+        return filteredTargetEntities.map((t, index) => {
+            const isUnifiedBogota = t.name === "BOGOTÁ (2)";
 
-            const finalMuni = muni || data.municipios.find(m =>
-                normalize(m.name) === normalize(t.muni) &&
-                (normalize(m.departamento || "").includes(normalize(t.dept)) || normalize(t.dept).includes(normalize(m.departamento || "")))
-            );
+            let displayReferidos = 0;
+            let displayTemplos = 0;
+            let displayMunicipalityName = t.muni;
+            let displayDepartmentName = t.dept;
 
-            const meta = finalMuni ? finalMuni.meta : 0;
-            const referidos = finalMuni ? finalMuni.referidos : 0;
+            if (isUnifiedBogota) {
+                const bogotaDept = data.departamentos.find(d => normalize(d.name).includes('BOGOTA'));
+                displayReferidos = bogotaDept?.referidos || 0;
+                displayTemplos = bogotaDept?.templosTarget || 30;
+                displayMunicipalityName = "BOGOTÁ D.C.";
+                displayDepartmentName = "BOGOTÁ D.C.";
+            } else {
+                // AGGREGATION LOGIC: Find ALL rows for this municipality
+                const muniRows = data.municipios.filter(m =>
+                    normalize(m.name) === normalize(t.muni) &&
+                    normalize(m.departamento || "") === normalize(t.dept)
+                );
+
+                // Fallback for names like VALLE DEL CAUCA / VALLE
+                const finalMuniRows = muniRows.length > 0 ? muniRows : data.municipios.filter(m =>
+                    normalize(m.name) === normalize(t.muni) &&
+                    (normalize(m.departamento || "").includes(normalize(t.dept)) || normalize(t.dept).includes(normalize(m.departamento || "")))
+                );
+
+                displayReferidos = finalMuniRows.reduce((acc, curr) => acc + curr.referidos, 0);
+                displayTemplos = finalMuniRows.length || 1;
+
+                const representativeMuni = finalMuniRows[0];
+                if (representativeMuni) {
+                    displayMunicipalityName = representativeMuni.name;
+                    displayDepartmentName = representativeMuni.departamento;
+                }
+            }
+
+            const meta = displayTemplos * 23;
             const mVal = parseInt(milestone);
             const targetMeta = meta * (mVal / 100);
-            const progress = targetMeta > 0 ? (referidos / targetMeta) * 100 : 0;
+            const progress = targetMeta > 0 ? (displayReferidos / targetMeta) * 100 : 0;
 
             return {
                 name: t.name,
-                municipalityName: finalMuni ? finalMuni.name : t.muni,
-                departmentName: finalMuni ? finalMuni.departamento : t.dept,
+                municipalityName: displayMunicipalityName,
+                departmentName: displayDepartmentName,
                 meta,
-                referidos,
+                referidos: displayReferidos,
                 progress,
-                color: colors[index % colors.length]
+                color: getProgressColor(progress, mVal)
             };
         });
-    }, [data.municipios, milestone, targetEntities]);
+    }, [data.municipios, data.departamentos, milestone, filteredTargetEntities]);
 
     const filteredCouncillors = useMemo(() => {
         return councillors.filter(c => {
@@ -230,12 +266,28 @@ export function ConcejalesView({ data }: { data: DashboardData }) {
             const matchesZero = !showZeroOnly || c.referidos === 0;
 
             return matchesSearch && matchesDept && matchesZero;
-        }).sort((a, b) => b.progress - a.progress);
+        }).sort((a, b) => {
+            if (b.progress !== a.progress) return b.progress - a.progress;
+            return b.referidos - a.referidos;
+        });
     }, [councillors, searchQuery, selectedDept, showZeroOnly]);
 
+    const isNacional = panoramaScope === 'nacional';
+    const totalCouncils = isNacional ? 75 : 77;
     const totalMeta = councillors.reduce((acc, curr) => acc + curr.meta, 0);
     const totalReferidos = councillors.reduce((acc, curr) => acc + curr.referidos, 0);
     const totalAvance = totalMeta > 0 ? (totalReferidos / totalMeta) * 100 : 0;
+    const zeroCouncils = councillors.filter(c => c.referidos === 0).length;
+    const activeCouncils = totalCouncils - zeroCouncils;
+
+    const firstValue = 25;
+    const reduction = firstValue > 0 ? ((firstValue - zeroCouncils) / firstValue) * 100 : 0;
+    const reductionText = (
+        <span className="flex items-baseline justify-center gap-1.5">
+            <span className="text-2xl font-black text-emerald-400">{reduction.toFixed(0)}%</span>
+            <span>Disminución territorios en cero</span>
+        </span>
+    );
 
     return (
         <div className="flex flex-col space-y-8 w-full">
@@ -243,7 +295,7 @@ export function ConcejalesView({ data }: { data: DashboardData }) {
                 <KPICard title="Objetivo Total" value={totalMeta.toLocaleString('es-CO')} icon={Target} color="blue" />
                 <KPICard title="Referidos Cargados" value={totalReferidos.toLocaleString('es-CO')} icon={Users} color="green" />
                 <KPICard title="Avance Global (100%)" value={`${totalAvance.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} icon={Activity} color="amber" />
-                <KPICard title="Cobertura" value="77" icon={Landmark} subtext="Concejales" />
+                <KPICard title="Cobertura" value={totalCouncils.toString()} icon={Landmark} subtext="Concejales" />
             </div>
 
             <div className="flex flex-col items-center p-4 pt-0 gap-6 relative">
@@ -261,6 +313,16 @@ export function ConcejalesView({ data }: { data: DashboardData }) {
 
                     {/* Selectors - Right Aligned */}
                     <div className="flex items-center gap-3">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 px-4 font-bold border-muted/50 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all border-blue-500/20"
+                            onClick={() => setIsEvolutionOpen(true)}
+                        >
+                            <TrendingUp className="mr-2 h-4 w-4" />
+                            Evolución
+                        </Button>
+
                         <Button
                             variant={showZeroOnly ? "destructive" : "outline"}
                             size="sm"
@@ -318,6 +380,14 @@ export function ConcejalesView({ data }: { data: DashboardData }) {
                     )}
                 </div>
             </div>
+
+            <CouncilEvolutionModal
+                isOpen={isEvolutionOpen}
+                onClose={() => setIsEvolutionOpen(false)}
+                activeCouncils={activeCouncils}
+                zeroCouncils={zeroCouncils}
+                chartSubtitle={reductionText}
+            />
         </div>
     );
 }

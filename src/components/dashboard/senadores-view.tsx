@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, getProgressColor } from "@/lib/utils";
 import { User } from 'lucide-react';
 import { DashboardData } from '@/lib/types';
-import { getDefaultMilestone } from '@/lib/utils-dates';
+import { getDefaultMilestone, isRedEnabled } from '@/lib/utils-dates';
 import {
     Select,
     SelectContent,
@@ -13,6 +13,22 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    Cell,
+} from 'recharts';
 
 interface SenatorCardProps {
     name: string;
@@ -25,20 +41,31 @@ interface SenatorCardProps {
     imagePosition?: 'center' | 'top';
     labelPosition?: 'left' | 'right';
     milestone: number;
+    onClick?: () => void;
 }
 
-function SenatorCard({ name, image, meta, referidos, className, customColor, imageFit = 'cover', imagePosition = 'center', labelPosition = 'left', milestone }: SenatorCardProps) {
+function SenatorCard({ name, image, meta, referidos, className, customColor, imageFit = 'cover', imagePosition = 'center', labelPosition = 'left', milestone, onClick }: SenatorCardProps) {
     // Progress based on selected milestone
     const targetMeta = meta * (milestone / 100);
     const progress = targetMeta > 0 ? (referidos / targetMeta) * 100 : 0;
 
     // Use custom color if provided
-    const borderColor = customColor ? `border-[${customColor}]/50` : "border-emerald-500/50";
-    const bgColor = customColor ? `bg-[${customColor}]/10` : "bg-emerald-500/10";
-    const accentBg = customColor || "#43a047";
+    const isSpecialCase = milestone === 100 && progress < 30 && !isRedEnabled();
+    const pColor = getProgressColor(progress, milestone);
+    const borderColor = isSpecialCase ? "border-white/20" : `border-[${pColor}]/50`;
+    const bgColor = isSpecialCase ? "bg-white/5" : `bg-[${pColor}]/10`;
+    const accentBg = isSpecialCase ? "#1e293b" : (customColor || "#43a047");
 
     return (
-        <Card className={cn("overflow-hidden border-2 transition-all hover:scale-105", borderColor, bgColor, className)}>
+        <Card
+            onClick={onClick}
+            className={cn(
+                "overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 hover:shadow-xl group/card",
+                borderColor,
+                bgColor,
+                className
+            )}
+        >
             <div className="relative aspect-square w-full bg-muted/20 flex items-center justify-center overflow-hidden">
                 {image ? (
                     <img src={image} alt={name} className={`object-${imageFit} w-full h-full ${imagePosition === 'top' ? 'object-top' : ''}`} />
@@ -57,8 +84,11 @@ function SenatorCard({ name, image, meta, referidos, className, customColor, ima
                     <p className="text-sm font-bold text-muted-foreground uppercase">
                         Referidos: {referidos.toLocaleString('es-CO')}
                     </p>
+                    <p className="text-sm font-bold text-muted-foreground uppercase">
+                        Faltante: {Math.ceil(Math.max(0, targetMeta - referidos)).toLocaleString('es-CO')}
+                    </p>
                 </div>
-                <div className="mt-1.5 text-3xl font-black font-mono" style={{ color: customColor || "#43a047" }}>
+                <div className="mt-1.5 text-3xl font-black font-mono" style={{ color: pColor }}>
                     {progress.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                 </div>
             </CardContent>
@@ -78,8 +108,29 @@ function ColombiaMap() {
     );
 }
 
+const SENATOR_DEPARTMENTS: Record<string, string[]> = {
+    "Manuel Virgüez Piraquive": [
+        "ATLANTICO", "BOLIVAR", "CORDOBA", "MAGDALENA", "CESAR", "CHOCO",
+        "NORTE DE SANTANDER", "LA GUAJIRA", "SAN ANDRES", "SANTANDER",
+        "SUCRE", "ANTIOQUIA", "CALDAS", "QUINDIO", "RISARALDA"
+    ],
+    "Carlos Eduardo Guevara": ["CUNDINAMARCA", "BOGOTA", "BOYACA"],
+    "Ana Paola Agudelo": [
+        "AMAZONAS", "CAQUETA", "CASANARE", "CAUCA", "CONSULADOS", "GUAINIA",
+        "GUAVIARE", "HUILA", "META", "NARINO", "PUTUMAYO", "TOLIMA", "VAUPES",
+        "VICHADA", "ARAUCA", "VALLE DEL CAUCA"
+    ]
+};
+
+const SENATOR_MODAL_TITLES: Record<string, string> = {
+    "Manuel Virgüez Piraquive": "Ranking Departamental - Senador Manuel Virguëz",
+    "Carlos Eduardo Guevara": "Ranking Departamental - Senador Carlos Eduardo Guevara",
+    "Ana Paola Agudelo": "Ranking Departamental - Senadora Ana Paola Agudelo"
+};
+
 export function SenadoresView({ data }: { data: DashboardData }) {
     const [milestone, setMilestone] = useState<string>(getDefaultMilestone());
+    const [selectedSenator, setSelectedSenator] = useState<string | null>(null);
 
     const normalize = (str: string) => {
         if (!str) return '';
@@ -151,6 +202,7 @@ export function SenadoresView({ data }: { data: DashboardData }) {
                         imageFit="cover"
                         labelPosition="right"
                         milestone={parseInt(milestone)}
+                        onClick={() => setSelectedSenator("Manuel Virgüez Piraquive")}
                     />
                 </div>
 
@@ -170,6 +222,7 @@ export function SenadoresView({ data }: { data: DashboardData }) {
                         className="w-full max-w-[280px]"
                         customColor="#00b0f0"
                         milestone={parseInt(milestone)}
+                        onClick={() => setSelectedSenator("Carlos Eduardo Guevara")}
                     />
                     <SenatorCard
                         name="Ana Paola Agudelo"
@@ -179,9 +232,154 @@ export function SenadoresView({ data }: { data: DashboardData }) {
                         className="w-full max-w-[280px]"
                         customColor="#ffc000"
                         milestone={parseInt(milestone)}
+                        onClick={() => setSelectedSenator("Ana Paola Agudelo")}
                     />
                 </div>
             </div>
+
+            {/* Detail Modal */}
+            <Dialog open={!!selectedSenator} onOpenChange={(open) => !open && setSelectedSenator(null)}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-[#020817] text-white border-white/10">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tight text-center">
+                            {selectedSenator ? SENATOR_MODAL_TITLES[selectedSenator] : 'Ranking Departamental'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {selectedSenator && (
+                        <div className="flex-1 overflow-auto py-4 px-2">
+                            <div className="h-[500px] w-full mt-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={(() => {
+                                            const m = parseInt(milestone);
+                                            const senatorDepts = SENATOR_DEPARTMENTS[selectedSenator] || [];
+                                            const normalizedTargets = senatorDepts.map(normalize);
+
+                                            return data.departamentos
+                                                .filter(d => {
+                                                    const normalizedName = normalize(d.name);
+                                                    return normalizedTargets.some(target =>
+                                                        normalizedName === target ||
+                                                        normalizedName.includes(target) ||
+                                                        target.includes(normalizedName)
+                                                    );
+                                                })
+                                                .map(d => {
+                                                    const targetMeta = (d.meta || 0) * (m / 100);
+                                                    const progress = targetMeta > 0 ? (d.referidos / targetMeta) * 100 : 0;
+                                                    return {
+                                                        name: d.name.toUpperCase(),
+                                                        progress: parseFloat(progress.toFixed(2)),
+                                                        referidos: d.referidos,
+                                                        municipiosCount: d.children?.filter(c => c.type === 'municipio').length || 0,
+                                                        color: getProgressColor(progress, m)
+                                                    };
+                                                })
+                                                .sort((a, b) => {
+                                                    if (b.progress !== a.progress) return b.progress - a.progress;
+                                                    return b.referidos - a.referidos;
+                                                });
+                                        })()}
+                                        layout="vertical"
+                                        margin={{ top: 5, right: 60, left: 100, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#ffffff10" />
+                                        <XAxis
+                                            type="number"
+                                            domain={[0, 100]}
+                                            hide
+                                        />
+                                        <YAxis
+                                            dataKey="name"
+                                            type="category"
+                                            width={180}
+                                            stroke="#94a3b8"
+                                            fontSize={14}
+                                            fontWeight="bold"
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#0f172a',
+                                                border: '1px solid #1e293b',
+                                                borderRadius: '8px',
+                                                color: '#fff'
+                                            }}
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div className="bg-[#0f172a] border border-[#1e293b] p-4 rounded-lg shadow-xl text-white min-w-[200px]">
+                                                            <p className="font-bold text-lg mb-2 border-b border-white/10 pb-1">{data.name}</p>
+                                                            <div className="space-y-2 text-sm">
+                                                                <p className="flex justify-between gap-6">
+                                                                    <span className="text-gray-400">Referidos Cargados:</span>
+                                                                    <span className="font-mono font-bold text-blue-400">{data.referidos.toLocaleString('es-CO')}</span>
+                                                                </p>
+                                                                <p className="flex justify-between gap-6">
+                                                                    <span className="text-gray-400">Municipios:</span>
+                                                                    <span className="font-mono font-bold text-purple-400">{data.municipiosCount}</span>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                        <Bar
+                                            dataKey="progress"
+                                            radius={[0, 4, 4, 0]}
+                                            barSize={35}
+                                            label={{
+                                                position: 'right',
+                                                fill: '#fff',
+                                                fontSize: 14,
+                                                fontWeight: 'bold',
+                                                formatter: (v: number) => `${v.toLocaleString('es-CO')}%`
+                                            }}
+                                        >
+                                            {(() => {
+                                                const m = parseInt(milestone);
+                                                const senatorDepts = SENATOR_DEPARTMENTS[selectedSenator] || [];
+                                                const normalizedTargets = senatorDepts.map(normalize);
+
+                                                return data.departamentos
+                                                    .filter(d => {
+                                                        const normalizedName = normalize(d.name);
+                                                        return normalizedTargets.some(target =>
+                                                            normalizedName === target ||
+                                                            normalizedName.includes(target) ||
+                                                            target.includes(normalizedName)
+                                                        );
+                                                    })
+                                                    .map(d => {
+                                                        const targetMeta = (d.meta || 0) * (m / 100);
+                                                        const progress = targetMeta > 0 ? (d.referidos / targetMeta) * 100 : 0;
+                                                        return {
+                                                            progress: parseFloat(progress.toFixed(2)),
+                                                            referidos: d.referidos,
+                                                            color: getProgressColor(progress, m)
+                                                        };
+                                                    })
+                                                    .sort((a, b) => {
+                                                        if (b.progress !== a.progress) return b.progress - a.progress;
+                                                        return b.referidos - a.referidos;
+                                                    })
+                                                    .map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ));
+                                            })()}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

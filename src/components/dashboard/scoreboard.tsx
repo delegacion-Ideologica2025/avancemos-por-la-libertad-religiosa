@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getProgressColor } from "@/lib/utils";
 
 interface ScoreRow {
     label: string;
@@ -75,15 +75,28 @@ function NewScoreCard({ title, rows, actionLabel, onAction, actionElement, secon
                                     </span>
                                 )}
                             </div>
-                            <div className={cn(
-                                "text-lg font-black font-mono px-3 py-1 rounded",
-                                row.color || "bg-emerald-500/10 text-emerald-500"
-                            )}>
-                                {row.isPercentage
-                                    ? `${(row.label.includes('30%') || row.label.includes('65%')
-                                        ? Math.min(row.value, 100)
-                                        : row.value).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-                                    : row.value.toLocaleString('es-CO')}
+                            <div className="text-lg font-black font-mono">
+                                <span
+                                    className="px-3 py-1 rounded inline-block"
+                                    style={{
+                                        color: row.color?.match(/text-\[([^\]]+)\]/)?.[1] ||
+                                            (row.color?.includes('text-emerald') ? '#43a047' :
+                                                row.color?.includes('text-amber') ? '#fdd835' :
+                                                    row.color?.includes('text-orange') ? '#fb8c00' :
+                                                        row.color?.includes('text-red') ? '#e53935' : 'inherit'),
+                                        backgroundColor: (row.color?.match(/text-\[([^\]]+)\]/)?.[1] ||
+                                            (row.color?.includes('text-emerald') ? '#43a047' :
+                                                row.color?.includes('text-amber') ? '#fdd835' :
+                                                    row.color?.includes('text-orange') ? '#fb8c00' :
+                                                        row.color?.includes('text-red') ? '#e53935' : '#43a047')) + '20'
+                                    }}
+                                >
+                                    {row.isPercentage
+                                        ? `${(row.label.includes('30%') || row.label.includes('65%')
+                                            ? Math.min(row.value, 100)
+                                            : row.value).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                                        : row.value.toLocaleString('es-CO')}
+                                </span>
                             </div>
                         </div>
                     ))}
@@ -117,6 +130,8 @@ interface ScoreboardProps {
     senadoresActionElement?: React.ReactNode;
     onViewStrategy?: () => void;
     onViewTrend?: () => void;
+    dynamicTitle?: string;
+    dynamicZeroTitle?: string;
 }
 
 export function Scoreboard({
@@ -126,33 +141,56 @@ export function Scoreboard({
     onViewSenadores,
     senadoresActionElement,
     onViewStrategy,
-    onViewTrend
+    onViewTrend,
+    dynamicTitle,
+    dynamicZeroTitle
 }: ScoreboardProps) {
     return (
         <div className="flex flex-col gap-6">
             <NewScoreCard
-                title="PANORAMA NACIONAL"
+                title={dynamicTitle || "PANORAMA NACIONAL"}
                 actionLabel={!senadoresActionElement ? "Senadores" : undefined}
                 onAction={!senadoresActionElement ? onViewSenadores : undefined}
                 actionElement={senadoresActionElement}
                 secondaryActionLabel="Tendencia"
                 onSecondaryAction={onViewTrend}
                 rows={[
-                    { label: "AVANCE 30%", value: main.score30, color: "bg-amber-500/10 text-amber-500", isPercentage: true, missing: main.missing30, target: main.target30 },
-                    { label: "AVANCE 65%", value: main.score65, color: "bg-orange-500/10 text-orange-500", isPercentage: true, missing: main.missing65, target: main.target65 },
-                    { label: "AVANCE 100%", value: main.score100, color: "bg-red-500/10 text-red-500", isPercentage: true, missing: main.missing100, target: main.target100 }
+                    {
+                        label: "AVANCE 30%",
+                        value: main.score30,
+                        color: `bg-[${getProgressColor(main.score30, 30)}]/10 text-[${getProgressColor(main.score30, 30)}]`,
+                        isPercentage: true,
+                        missing: main.missing30,
+                        target: main.target30
+                    },
+                    {
+                        label: "AVANCE 65%",
+                        value: main.score65,
+                        color: `bg-[${getProgressColor(main.score65, 65)}]/10 text-[${getProgressColor(main.score65, 65)}]`,
+                        isPercentage: true,
+                        missing: main.missing65,
+                        target: main.target65
+                    },
+                    {
+                        label: "AVANCE 100%",
+                        value: main.score100,
+                        color: `bg-[${getProgressColor(main.score100, 100)}]/10 text-[${getProgressColor(main.score100, 100)}]`,
+                        isPercentage: true,
+                        missing: main.missing100,
+                        target: main.target100
+                    }
                 ]}
             />
             {zeroStats && (
                 <NewScoreCard
-                    title="PANORAMA CERO REFERIDOS"
+                    title={dynamicZeroTitle || "PANORAMA CERO REFERIDOS"}
                     actionLabel="Ver"
                     onAction={onViewZero}
                     secondaryActionLabel="Estrategia"
                     onSecondaryAction={onViewStrategy}
                     rows={[
                         {
-                            label: "DEPARTAMENTOS",
+                            label: dynamicTitle?.includes('BOGOTA') ? "LOCALIDADES" : "DEPARTAMENTOS",
                             value: zeroStats.deps,
                             color: zeroStats.deps === 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500",
                             target: zeroStats.metaDeps

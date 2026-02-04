@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
     try {
+        // Security check
+        const isSecurityActive = await kv.get('auth_security_active');
+        if (isSecurityActive === false) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const data = await kv.get('dashboard_shared_data');
         if (!data) {
             return NextResponse.json({ message: 'No data found' }, { status: 404 });
@@ -16,6 +22,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        // Security check
+        const isSecurityActive = await kv.get('auth_security_active');
+        if (isSecurityActive === false) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const data = await request.json();
 
         // Basic validation: ensure it has the expected version or structure
