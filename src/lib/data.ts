@@ -83,7 +83,18 @@ const METAS_DEPT: Record<string, number> = {
 
 // Specialized Bogotá Meta logic
 const getMetaBogota = (name: string): number => {
-    return 23;
+    if (!name) return 23;
+    const normalized = name.toUpperCase().trim();
+
+    // Try exact match
+    if (METAS_BOGOTA[normalized]) return METAS_BOGOTA[normalized];
+
+    // Try fuzzy match
+    const foundEntry = Object.entries(METAS_BOGOTA).find(([k]) => {
+        return normalized.includes(k) || k.includes(normalized);
+    });
+
+    return foundEntry ? foundEntry[1] : 23;
 };
 
 // Generic safe cleaner
@@ -115,9 +126,12 @@ const findKey = (row: Record<string, any>, keyword: string): string | undefined 
     }
 
     if (keyword === 'Localidad') {
+        // Strict match first
         if (keys.includes('Localidad')) return 'Localidad';
+
+        // Robust match with trim
         return keys.find(k => {
-            const l = k.toLowerCase();
+            const l = k.toLowerCase().trim();
             return l === 'localidad' || l === 'localidades' || l === 'templos' || l === 'templo' || l === 'centro' || l.includes('sector') || l.includes('estrategia') || l.includes('zona');
         });
     }
@@ -131,7 +145,7 @@ const findKey = (row: Record<string, any>, keyword: string): string | undefined 
 
     if (keyword === 'Templo') {
         return keys.find(k => {
-            const l = k.toLowerCase();
+            const l = k.toLowerCase().trim();
             // EXCLUSION: If it matches 'referidos' or 'objetivo', it's NOT a temple name
             if (l.includes('referidos') || l.includes('activos') || l.includes('objetivo') || l.includes('meta')) return false;
             return l.includes('templo') || l.includes('centro') || l.includes('nombre') || l.includes('punto');
@@ -198,7 +212,13 @@ export const processFiles = async (
     if (fileTemplo) bogotaRaw = await readExcel(fileTemplo);
 
     // --- 1. Process BOGOTA Localities (Excel 3) ---
-    const bogotaTemplos: Templo[] = bogotaRaw.map((row) => {
+    const bogotaTemplos: Templo[] = bogotaRaw.map((row, index) => {
+        if (index === 0) {
+            const keys = Object.keys(row);
+            console.log('--- DEBUG: First Row Keys ---', keys);
+            // Alert to show keys to the user
+            alert(`COLUMNAS DE BOGOTÁ DETECTADAS:\n\n${JSON.stringify(keys, null, 2)}\n\nPor favor, toma una captura o dime qué columnas ves aquí.`);
+        }
         let localidadMayor = cleanStr(getVal(row, 'Localidad Mayor'));
         const localidad = cleanStr(getVal(row, 'Localidad') || 'Desconocido');
 

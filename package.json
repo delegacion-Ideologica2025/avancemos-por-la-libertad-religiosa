@@ -17,7 +17,7 @@
         "@radix-ui/react-switch": "^1.0.3",
         "@tanstack/react-table": "^8.11.7",
         "@vercel/kv": "^1.0.1",
-        "avancemos-por-la-libertad-religiosa": "file:C:/Users/Diego/.gemini/antigravity/scratch/dashboard-metas",
+
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.0",
         "jspdf": "^2.5.1",
