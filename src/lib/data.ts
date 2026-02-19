@@ -212,13 +212,16 @@ export const processFiles = async (
     if (fileTemplo) bogotaRaw = await readExcel(fileTemplo);
 
     // --- 1. Process BOGOTA Localities (Excel 3) ---
+    if (bogotaRaw.length > 0) {
+        const firstRow = bogotaRaw[0];
+        const keys = Object.keys(firstRow);
+        console.log('--- DEBUG: First Row Keys ---', keys);
+        alert(`DEBUG: Lei el archivo de Bogotá.\nFilas encontradas: ${bogotaRaw.length}\nColumnas detectadas en fila 1: ${JSON.stringify(keys)}`);
+    } else {
+        alert("DEBUG: El archivo de Bogotá parece estar vacío o no se pudo leer (0 filas).");
+    }
+
     const bogotaTemplos: Templo[] = bogotaRaw.map((row, index) => {
-        if (index === 0) {
-            const keys = Object.keys(row);
-            console.log('--- DEBUG: First Row Keys ---', keys);
-            // Alert to show keys to the user
-            alert(`COLUMNAS DE BOGOTÁ DETECTADAS:\n\n${JSON.stringify(keys, null, 2)}\n\nPor favor, toma una captura o dime qué columnas ves aquí.`);
-        }
         let localidadMayor = cleanStr(getVal(row, 'Localidad Mayor'));
         const localidad = cleanStr(getVal(row, 'Localidad') || 'Desconocido');
 
