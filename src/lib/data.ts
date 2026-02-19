@@ -216,7 +216,7 @@ export const processFiles = async (
         const firstRow = bogotaRaw[0];
         const keys = Object.keys(firstRow);
         console.log('--- DEBUG: First Row Keys ---', keys);
-        alert(`DEBUG: Lei el archivo de Bogotá.\nFilas encontradas: ${bogotaRaw.length}\nColumnas detectadas en fila 1: ${JSON.stringify(keys)}`);
+        alert(`[VERSION 3 - 4:40 PM] DEBUG: Lei el archivo de Bogotá.\nFilas encontradas: ${bogotaRaw.length}\nColumnas detectadas en fila 1: ${JSON.stringify(keys)}`);
     } else {
         alert("DEBUG: El archivo de Bogotá parece estar vacío o no se pudo leer (0 filas).");
     }
