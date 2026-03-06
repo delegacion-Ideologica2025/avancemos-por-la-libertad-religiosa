@@ -125,15 +125,13 @@ export function ConcejalesView({ data, panoramaScope }: { data: DashboardData, p
         { dept: "CALDAS", muni: "LA DORADA", name: "MARIA MORALES" },
         { dept: "CALDAS", muni: "MANIZALES", name: "YULI GALLEGO" },
         { dept: "CALDAS", muni: "PACORA", name: "LUIS GONZALEZ" },
-        { dept: "CALDAS", muni: "RISARALDA", name: "ANA CASTRILLON" },
         { dept: "CALDAS", muni: "SUPIA", name: "DENIS LARGO" },
         { dept: "CALDAS", muni: "VILLAMARIA", name: "MARIAN HERRERA" },
         { dept: "CALDAS", muni: "VITERBO", name: "ALBERTO VILLA" },
-        { dept: "CAQUETA", muni: "FLORENCIA", name: "ERMINIA ALVAREZ" },
         { dept: "CAUCA", muni: "CORINTO", name: "MILDRETH GIL" },
         { dept: "CAUCA", muni: "GUACHENE", name: "JUAN MINA" },
         { dept: "CAUCA", muni: "MIRANDA", name: "ERIKA MOSQUERA" },
-        { dept: "CAUCA", muni: "PATIA EL BORDO", name: "NINI GARCES" },
+        { dept: "CAUCA", muni: "PATIA (EL BORDO)", name: "NINI GARCES" },
         { dept: "CAUCA", muni: "POPAYAN", name: "FERNANDO LÓPEZ" },
         { dept: "CESAR", muni: "AGUSTIN CODAZZI", name: "YEISETH MIRANDA" },
         { dept: "CHOCO", muni: "CONDOTO", name: "WALTER MOSQUERA" },
@@ -149,7 +147,7 @@ export function ConcejalesView({ data, panoramaScope }: { data: DashboardData, p
         { dept: "CUNDINAMARCA", muni: "SILVANIA", name: "DANIA ALVAREZ" },
         { dept: "CUNDINAMARCA", muni: "SOACHA", name: "JAZMIN OLARTE" },
         { dept: "CUNDINAMARCA", muni: "TABIO", name: "ANDRES ZAPATA" },
-        { dept: "CUNDINAMARCA", muni: "VILLA DE SAN DIEGO DE UBATE", name: "OMAR RODRIGUEZ" },
+        { dept: "CUNDINAMARCA", muni: "UBATE", name: "OMAR RODRIGUEZ" },
         { dept: "CUNDINAMARCA", muni: "VILLETA", name: "EMILCE ACERO" },
         { dept: "META", muni: "ACACIAS", name: "ZULMA DIAZ" },
         { dept: "META", muni: "RESTREPO", name: "SANTIAGO LOPEZ" },
@@ -170,12 +168,10 @@ export function ConcejalesView({ data, panoramaScope }: { data: DashboardData, p
         { dept: "RISARALDA", muni: "PEREIRA", name: "ANYELINE SANDOVAL" },
         { dept: "RISARALDA", muni: "SANTUARIO", name: "FRANCISCO LOPEZ" },
         { dept: "SANTANDER", muni: "BARBOSA", name: "EMYLCE GAMBOA" },
-        { dept: "SANTANDER", muni: "FLORIAN", name: "JOSE PEÑA" },
         { dept: "TOLIMA", muni: "CHAPARRAL", name: "JORGE LERMA" },
         { dept: "TOLIMA", muni: "GUAMO", name: "JUAN PEÑA" },
         { dept: "TOLIMA", muni: "IBAGUE", name: "CAMILO TAVERA" },
         { dept: "TOLIMA", muni: "LIBANO", name: "JORGE ORJUELA" },
-        { dept: "TOLIMA", muni: "VILLARRICA", name: "IVAN MEDINA" },
         { dept: "VALLE", muni: "ANSERMANUEVO", name: "CRISTIAN DUQUE" },
         { dept: "VALLE", muni: "BUENAVENTURA", name: "MARBIN OBREGON" },
         { dept: "VALLE", muni: "CARTAGO", name: "MARIA CORTES" },
@@ -273,7 +269,7 @@ export function ConcejalesView({ data, panoramaScope }: { data: DashboardData, p
     }, [councillors, searchQuery, selectedDept, showZeroOnly]);
 
     const isNacional = panoramaScope === 'nacional';
-    const totalCouncils = isNacional ? 75 : 77;
+    const totalCouncils = isNacional ? 71 : 73;
     const totalMeta = councillors.reduce((acc, curr) => acc + curr.meta, 0);
     const totalReferidos = councillors.reduce((acc, curr) => acc + curr.referidos, 0);
     const totalAvance = totalMeta > 0 ? (totalReferidos / totalMeta) * 100 : 0;
